@@ -52,11 +52,28 @@ export default class GitLabNotes extends Plugin {
         this.registerObsidianProtocolHandler("gitlab-notes/open", async (e) => {
             const gitLabInfo = extractGitLabInfo(this, e.location, e.title)
 
-            const existingNote = this.app.vault.getFileByPath(`${gitLabInfo.fullPath}.md`)
+            const allExistingFiles = this.app.metadataCache.resolvedLinks
+            const fullPathFileName = `${gitLabInfo.fullPath}`
+            const fullPathFileNameMd = `${gitLabInfo.fullPath}.md`
+
+            const existingNoteDirect = allExistingFiles[fullPathFileNameMd]
+                ? this.app.vault.getFileByPath(fullPathFileNameMd)
+                : undefined
+
+            const re = new RegExp(`${gitLabInfo.alternateRef}([\\s]+|$)`, 'gi');
+            const existingNoteByAlternateRef = existingNoteDirect ? undefined : (() => {
+                const match = Object.keys(this.app.metadataCache.resolvedLinks)
+                    .reduce((found, name) => found ?? ( name.match(re) ? name : found ), undefined)
+                if (!match) {
+                    return undefined
+                }
+
+                return this.app.vault.getFileByPath(`${match}`)
+            })()
+
+            const existingNote = existingNoteDirect ?? existingNoteByAlternateRef
 
             if (existingNote) {
-                console.log('Already there!')
-                console.log({existingNote})
                 const activeLeaf = this.app.workspace.getLeaf(false);
 
                 if (!activeLeaf) {

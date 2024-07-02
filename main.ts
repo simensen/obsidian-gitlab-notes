@@ -2,6 +2,7 @@ import { App, Editor, MarkdownView, Modal, Notice, Plugin, PluginSettingTab, Set
 
 interface GitLabNotesSettings {
     rootFolder: string,
+    frontmatterKey: string,
 
     mergeRequestIdFormat: string,
     mergeRequestAlternateIdFormat: string,
@@ -35,7 +36,7 @@ const DEFAULT_SETTINGS: GitLabNotesSettings = {
     mergeRequestFileNameFormat: '{shortProject}/merge-requests/{alternateRef} - {fileNameSafeTitle}',
     mergeRequestTemplate: '',
 
-    issueIdFormat: '{shortProject}!{number}',
+    issueIdFormat: '{shortProject}#{number}',
     issueAlternateIdFormat: 'I-{number}',
     issueFileNameFormat: '{shortProject}/issues/{alternateRef} - {fileNameSafeTitle}',
     issueTemplate: '',
@@ -232,6 +233,17 @@ class GitLabNotesSettingTab extends PluginSettingTab {
                     await this.plugin.saveSettings();
                 }));
 
+        new Setting(generalContainerEl)
+            .setName('Frontmatter key')
+            .setDesc('GitLab info will be added to Note frontmatter using this key')
+            .addText(text => text
+                .setPlaceholder(DEFAULT_SETTINGS.frontmatterKey)
+                .setValue(this.plugin.settings.frontmatterKey)
+                .onChange(async (value) => {
+                    this.plugin.settings.frontmatterKey = value;
+                    await this.plugin.saveSettings();
+                }));
+
         containerEl.createEl('h3', { text: "Issues" })
         const issueContainerEl = containerEl.createEl('div')
 
@@ -363,6 +375,7 @@ function extractRawGitLabInfo(location: string, title: string): RawGitLabInfo {
     const shortProject = matches[2]
     const type = matches[3] === "issues" ? "issue" : "merge-reqest"
     const number = matches[4]
+
     return {
         url,
         fullProject,
@@ -403,7 +416,7 @@ function extractGitLabInfo(plugin: GitLabNotes, location: string, title: string)
         ? plugin.settings.issueTemplate
         : plugin.settings.mergeRequestTemplate
 
-    gitLabInfo.fileNameSafeTitle = gitLabInfo.title.replace(/[":\/\\]+/, "")
+    gitLabInfo.fileNameSafeTitle = gitLabInfo.title.replace(/[":\/\\]+/g, "")
 
     gitLabInfo.ref = renderTemplate(refFormat, rawGitLabInfo)
     gitLabInfo.alternateRef = renderTemplate(alternateRefFormat, rawGitLabInfo)
